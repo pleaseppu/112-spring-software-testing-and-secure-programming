@@ -1,57 +1,71 @@
 const test = require('node:test');
 const assert = require('assert');
-const sinon = require('sinon');
+const fs = require('fs');
+
+test.mock.method(fs, 'readFile', (file, options, callback) => {
+    callback(null, 'martin\njohn\ntom');
+});
+
 const { Application, MailSystem } = require('./main');
 
-test('MailSystem write method should return correct context', () => {
+test('MailSystem_write()', () => {
     const mailSystem = new MailSystem();
-    const context = mailSystem.write('John');
-    assert.strictEqual(context, 'Congrats, John!');
+    assert.strictEqual(mailSystem.write('martin'), 'Congrats, martin!');
+    assert.strictEqual(mailSystem.write(null), 'Congrats, null!');
+    assert.strictEqual(mailSystem.write(48763), 'Congrats, 48763!');
 });
 
-test('MailSystem send method should return true when mail is sent successfully', () => {
+test('MailSystem_send()', () => {
     const mailSystem = new MailSystem();
-    sinon.stub(Math, 'random').returns(0.6); // Stub Math.random() to always return > 0.5
-    const success = mailSystem.send('John', 'Congrats, John!');
-    assert.strictEqual(success, true);
-    sinon.restore();
+    const name = 'martin';
+    test.mock.method(Math, 'random', () => 0.6);
+    assert.strictEqual(mailSystem.send(name, 'success'), true);
+    test.mock.method(Math, 'random', () => 0.4);
+    assert.strictEqual(mailSystem.send(name, 'fail'), false);
 });
 
-test('MailSystem send method should return false when mail sending fails', () => {
-    const mailSystem = new MailSystem();
-    sinon.stub(Math, 'random').returns(0.4); // Stub Math.random() to always return <= 0.5
-    const success = mailSystem.send('John', 'Congrats, John!');
-    assert.strictEqual(success, false);
-    sinon.restore();
-});
-
-test('Application getRandomPerson method should return a person from the people array', () => {
+test('Application_getNames()', async () => {
     const app = new Application();
-    app.people = ['John', 'Jane', 'Doe'];
-    const person = app.getRandomPerson();
-    assert(app.people.includes(person));
+    const nameList = ['martin', 'john', 'tom'];
+    const names = await app.getNames();
+    assert.deepStrictEqual(names, [nameList, []]);
 });
 
-test('Application selectNextPerson method should handle scenario where all people are selected', () => {
+test('Application_getRandomPerson()', async () => {
     const app = new Application();
-    app.people = ['John', 'Jane', 'Doe'];
-    app.selected = ['John', 'Jane', 'Doe'];
-    const person = app.selectNextPerson();
-    assert.strictEqual(person, null);
+    const names = await app.getNames();
+    test.mock.method(Math, 'random', () => 0);
+    assert.strictEqual(app.getRandomPerson(), 'martin');
+    test.mock.method(Math, 'random', () => 0.4);
+    assert.strictEqual(app.getRandomPerson(), 'john');
+    test.mock.method(Math, 'random', () => 0.7);
+    assert.strictEqual(app.getRandomPerson(), 'tom');
 });
 
-test('Application notifySelected method should call write and send methods for each selected person', () => {
-    const mailSystem = new MailSystem();
-    const writeStub = sinon.stub(mailSystem, 'write');
-    const sendStub = sinon.stub(mailSystem, 'send');
-    
+test('Application_selectNextPerson()', async () => {
     const app = new Application();
-    app.selected = ['John', 'Jane', 'Doe'];
-    
+    const names = await app.getNames();
+    app.selected = ['martin'];
+    let count = 0;
+    test.mock.method(app, 'getRandomPerson', () => {
+        if (count <= names.length) { 
+            return names[0][count++]; 
+        }
+    });
+    assert.strictEqual(app.selectNextPerson(), 'john');
+    assert.deepStrictEqual(app.selected, ['martin', 'john']);
+    assert.strictEqual(app.selectNextPerson(), 'tom');
+    assert.deepStrictEqual(app.selected, ['martin', 'john', 'tom']);
+    assert.strictEqual(app.selectNextPerson(), null);
+});
+
+test('Application_notifySelected()', async () => {
+    const app = new Application();
+    app.people = ['martin', 'john', 'tom'];
+    app.selected = ['martin', 'john', 'tom'];
+    app.mailSystem.send = test.mock.fn(app.mailSystem.send);
+    app.mailSystem.write = test.mock.fn(app.mailSystem.write);
     app.notifySelected();
-
-    assert.strictEqual(writeStub.callCount, 3);
-    assert.strictEqual(sendStub.callCount, 3);
-    
-    sinon.restore();
+    assert.strictEqual(app.mailSystem.send.mock.calls.length, 3);
+    assert.strictEqual(app.mailSystem.write.mock.calls.length, 3);
 });
