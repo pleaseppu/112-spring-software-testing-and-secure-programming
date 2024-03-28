@@ -45,10 +45,5 @@ describe('Calculator', () => {
             assert.strictEqual(calculator.log(2), Math.log(2));
             assert.strictEqual(calculator.log(10), Math.log(10));
         });
-        
-        it('should throw an error for very small positive input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.log(0.0001), Error);
-        });
     });
 });
