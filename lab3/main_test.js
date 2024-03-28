@@ -17,6 +17,11 @@ describe('Calculator', () => {
             assert.strictEqual(calculator.exp(1), Math.exp(1));
             assert.strictEqual(calculator.exp(-1), Math.exp(-1));
         });
+
+        it('should throw an error for non-numeric input', () => {
+            const calculator = new Calculator();
+            assert.throws(() => calculator.exp('abc'), Error); 
+        });
     });
 
     describe('log', () => {
@@ -43,6 +48,11 @@ describe('Calculator', () => {
         it('should throw an error for negative infinity input', () => {
             const calculator = new Calculator();
             assert.throws(() => calculator.log(-Infinity), Error);
+        });
+
+        it('should throw an error for non-numeric input', () => {
+            const calculator = new Calculator();
+            assert.throws(() => calculator.log('abc'), Error);
         });
     });
 });
