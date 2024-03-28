@@ -2,57 +2,53 @@ const { describe, it } = require('node:test');
 const assert = require('assert');
 const { Calculator } = require('./main');
 
-describe('Calculator', () => {
-    describe('exp', () => {
-        it('should throw an error for non-finite input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.exp(NaN), Error);
-            assert.throws(() => calculator.exp(Infinity), Error);
-            assert.throws(() => calculator.exp(-Infinity), Error);
-        });
+// Helper function to generate test cases for exponential function
+function generateTestCaseExp(param, expectedResult, error = null) {
+    return { param, expectedResult, error };
+}
 
-        it('should return the correct result for finite input', () => {
-            const calculator = new Calculator();
-            assert.strictEqual(calculator.exp(0), 1);
-            assert.strictEqual(calculator.exp(1), Math.exp(1));
-            assert.strictEqual(calculator.exp(-1), Math.exp(-1));
-        });
+// Helper function to generate test cases for logarithmic function
+function generateTestCaseLog(param, expectedResult, error = null) {
+    return { param, expectedResult, error };
+}
 
-        it('should throw an error for non-numeric input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.exp('abc'), Error); 
-        });
+// Main test suite
+describe('Calculator Exponential and Logarithmic Functions', () => {
+    const calculator = new Calculator();
+
+    it('should calculate exponential values correctly', () => {
+        const testCases = [
+            generateTestCaseExp(1, Math.exp(1)),
+            generateTestCaseExp(2, Math.exp(2)),
+            generateTestCaseExp(Number.MAX_VALUE, Error, 'overflow'),
+            generateTestCaseExp(null, Error, 'unsupported operand type'),
+            generateTestCaseExp('ABC', Error, 'unsupported operand type')
+        ];
+
+        for (const { param, expectedResult, error } of testCases) {
+            const assertion = expectedResult === Error ?
+                () => assert.throws(() => calculator.exp(param), { name: 'Error', message: error }) :
+                () => assert.strictEqual(calculator.exp(param), expectedResult);
+
+            assertion();
+        }
     });
 
-    describe('log', () => {
-        it('should throw an error for non-finite input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.log(NaN), Error);
-            assert.throws(() => calculator.log(Infinity), Error);
-            assert.throws(() => calculator.log(-Infinity), Error);
-        });
+    it('should calculate logarithmic values correctly', () => {
+        const testCases = [
+            generateTestCaseLog(1, 0),
+            generateTestCaseLog(0, Error, 'math domain error (1)'),
+            generateTestCaseLog(-2, Error, 'math domain error (2)'),
+            generateTestCaseLog(null, Error, 'unsupported operand type'),
+            generateTestCaseLog('ABC', Error, 'unsupported operand type')
+        ];
 
-        it('should throw an error for input less than or equal to zero', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.log(-1), Error); // Log of negative number is NaN
-            assert.throws(() => calculator.log(0), Error); // Log of zero is -Infinity
-        });
+        for (const { param, expectedResult, error } of testCases) {
+            const assertion = expectedResult === Error ?
+                () => assert.throws(() => calculator.log(param), { name: 'Error', message: error }) :
+                () => assert.strictEqual(calculator.log(param), expectedResult);
 
-        it('should return the correct result for input greater than zero', () => {
-            const calculator = new Calculator();
-            assert.strictEqual(calculator.log(1), 0);
-            assert.strictEqual(calculator.log(2), Math.log(2));
-            assert.strictEqual(calculator.log(10), Math.log(10));
-        });
-
-        it('should throw an error for negative infinity input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.log(-Infinity), Error);
-        });
-
-        it('should throw an error for non-numeric input', () => {
-            const calculator = new Calculator();
-            assert.throws(() => calculator.log('abc'), Error);
-        });
+            assertion();
+        }
     });
 });
