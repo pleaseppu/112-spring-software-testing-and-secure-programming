@@ -1,71 +1,124 @@
 const test = require('node:test');
 const assert = require('assert');
-const fs = require('fs');
+const sinon = require('sinon');
 
-test.mock.method(fs, 'readFile', (file, options, callback) => {
-    callback(null, 'martin\njohn\ntom');
-});
+const { Application, MailSystem } = require('./your_module_name');
 
-const { Application, MailSystem } = require('./main');
+test('notifySelected method should notify all selected people', async () => {
+    // Create a stub for MailSystem
+    const mailSystemStub = sinon.createStubInstance(MailSystem);
+    mailSystemStub.write.returns('Test context');
 
-test('MailSystem_write()', () => {
-    const mailSystem = new MailSystem();
-    assert.strictEqual(mailSystem.write('martin'), 'Congrats, martin!');
-    assert.strictEqual(mailSystem.write(null), 'Congrats, null!');
-    assert.strictEqual(mailSystem.write(48763), 'Congrats, 48763!');
-});
-
-test('MailSystem_send()', () => {
-    const mailSystem = new MailSystem();
-    const name = 'martin';
-    test.mock.method(Math, 'random', () => 0.6);
-    assert.strictEqual(mailSystem.send(name, 'success'), true);
-    test.mock.method(Math, 'random', () => 0.4);
-    assert.strictEqual(mailSystem.send(name, 'fail'), false);
-});
-
-test('Application_getNames()', async () => {
     const app = new Application();
-    const nameList = ['martin', 'john', 'tom'];
-    const names = await app.getNames();
-    assert.deepStrictEqual(names, [nameList, []]);
-});
+    app.mailSystem = mailSystemStub;
 
-test('Application_getRandomPerson()', async () => {
-    const app = new Application();
-    const names = await app.getNames();
-    test.mock.method(Math, 'random', () => 0);
-    assert.strictEqual(app.getRandomPerson(), 'martin');
-    test.mock.method(Math, 'random', () => 0.4);
-    assert.strictEqual(app.getRandomPerson(), 'john');
-    test.mock.method(Math, 'random', () => 0.7);
-    assert.strictEqual(app.getRandomPerson(), 'tom');
-});
+    // Set up test data
+    app.people = ['John', 'Doe'];
+    app.selected = ['John'];
 
-test('Application_selectNextPerson()', async () => {
-    const app = new Application();
-    const names = await app.getNames();
-    app.selected = ['martin'];
-    let count = 0;
-    test.mock.method(app, 'getRandomPerson', () => {
-        if (count <= names.length) { 
-            return names[0][count++]; 
-        }
-    });
-    assert.strictEqual(app.selectNextPerson(), 'john');
-    assert.deepStrictEqual(app.selected, ['martin', 'john']);
-    assert.strictEqual(app.selectNextPerson(), 'tom');
-    assert.deepStrictEqual(app.selected, ['martin', 'john', 'tom']);
-    assert.strictEqual(app.selectNextPerson(), null);
-});
+    // Spy on mailSystem.send method
+    const sendSpy = sinon.spy(app.mailSystem, 'send');
 
-test('Application_notifySelected()', async () => {
-    const app = new Application();
-    app.people = ['martin', 'john', 'tom'];
-    app.selected = ['martin', 'john', 'tom'];
-    app.mailSystem.send = test.mock.fn(app.mailSystem.send);
-    app.mailSystem.write = test.mock.fn(app.mailSystem.write);
+    // Call the method under test
     app.notifySelected();
-    assert.strictEqual(app.mailSystem.send.mock.calls.length, 3);
-    assert.strictEqual(app.mailSystem.write.mock.calls.length, 3);
+
+    // Verify that mailSystem.write was called for each selected person
+    assert(mailSystemStub.write.calledTwice);
+
+    // Verify that mailSystem.send was called for each selected person
+    assert(sendSpy.calledTwice);
+
+    // Verify the arguments passed to mailSystem.send
+    assert.strictEqual(sendSpy.firstCall.args[0], 'John');
+    assert.strictEqual(sendSpy.firstCall.args[1], 'Test context');
+    assert.strictEqual(sendSpy.secondCall.args[0], 'Doe');
+    assert.strictEqual(sendSpy.secondCall.args[1], 'Test context');
+});
+
+test('selectNextPerson method should select next person randomly', () => {
+    const app = new Application();
+
+    // Set up test data
+    app.people = ['John', 'Doe', 'Jane'];
+
+    // Spy on Math.random to control its output
+    const mathRandomStub = sinon.stub(Math, 'random');
+    mathRandomStub.onCall(0).returns(0.1); // Force selection of first person
+    mathRandomStub.onCall(1).returns(0.9); // Force selection of third person
+
+    // Call the method under test
+    assert.strictEqual(app.selectNextPerson(), 'John');
+    assert.strictEqual(app.selectNextPerson(), 'Jane');
+    assert.strictEqual(app.selectNextPerson(), null);
+
+    // Restore Math.random
+    mathRandomStub.restore();
+});
+
+test('getNames method should read names from file and return array of names', async () => {
+    const expectedNames = ['John', 'Doe', 'Jane'];
+
+    // Stub fs.readFile to return test data
+    const readFileStub = sinon.stub(fs, 'readFile').resolves(expectedNames.join('\n'));
+
+    const app = new Application();
+
+    // Call the method under test
+    const [people, selected] = await app.getNames();
+
+    // Verify that fs.readFile was called with the correct arguments
+    assert.strictEqual(readFileStub.calledOnce, true);
+    assert.strictEqual(readFileStub.firstCall.args[0], 'name_list.txt');
+    assert.strictEqual(readFileStub.firstCall.args[1], 'utf8');
+
+    // Verify the returned values
+    assert.deepStrictEqual(people, expectedNames);
+    assert.deepStrictEqual(selected, []);
+
+    // Restore fs.readFile
+    readFileStub.restore();
+});
+
+test('getRandomPerson method should return a random person from the list', () => {
+    const app = new Application();
+    app.people = ['John', 'Doe', 'Jane'];
+
+    // Spy on Math.random to control its output
+    const mathRandomStub = sinon.stub(Math, 'random').returns(0.5); // Force selection of second person
+
+    // Call the method under test
+    const randomPerson = app.getRandomPerson();
+
+    // Verify that a random person is returned
+    assert.strictEqual(randomPerson, 'Doe');
+
+    // Restore Math.random
+    mathRandomStub.restore();
+});
+
+test('selectNextPerson method should return null if all people are selected', () => {
+    const app = new Application();
+    app.people = ['John'];
+    app.selected = ['John'];
+
+    // Call the method under test
+    const nextPerson = app.selectNextPerson();
+
+    // Verify that null is returned when all people are selected
+    assert.strictEqual(nextPerson, null);
+});
+
+test('selectNextPerson method should select different person each time until all people are selected', () => {
+    const app = new Application();
+    app.people = ['John', 'Doe', 'Jane'];
+
+    // Call the method under test three times
+    const selectedPeople = [];
+    for (let i = 0; i < 3; i++) {
+        const nextPerson = app.selectNextPerson();
+        selectedPeople.push(nextPerson);
+    }
+
+    // Verify that each person is selected only once
+    assert.deepStrictEqual(selectedPeople.sort(), ['Doe', 'Jane', 'John'].sort());
 });
