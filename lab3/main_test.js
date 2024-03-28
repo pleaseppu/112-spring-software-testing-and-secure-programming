@@ -17,6 +17,11 @@ describe('Calculator', () => {
             assert.strictEqual(calculator.exp(1), Math.exp(1));
             assert.strictEqual(calculator.exp(-1), Math.exp(-1));
         });
+
+        it('should throw an error for negative infinity input', () => {
+            const calculator = new Calculator();
+            assert.throws(() => calculator.exp(-Infinity), Error);
+        });
     });
 
     describe('log', () => {
@@ -24,13 +29,13 @@ describe('Calculator', () => {
             const calculator = new Calculator();
             assert.throws(() => calculator.log(NaN), Error);
             assert.throws(() => calculator.log(Infinity), Error);
-            assert.throws(() => calculator.log(0), Error); // Log of zero is -Infinity
+            assert.throws(() => calculator.log(-Infinity), Error);
         });
 
         it('should throw an error for input less than or equal to zero', () => {
             const calculator = new Calculator();
-            assert.throws(() => calculator.log(-1), Error); // Log of negative number is NaN
-            assert.throws(() => calculator.log(0), Error); // Log of zero is -Infinity
+            assert.throws(() => calculator.log(-1), Error);
+            assert.throws(() => calculator.log(0), Error);
         });
 
         it('should return the correct result for input greater than zero', () => {
