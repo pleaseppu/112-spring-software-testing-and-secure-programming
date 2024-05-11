@@ -497,7 +497,19 @@ SUMMARY: AddressSanitizer: SEGV /home/chu/桌面/112-spring-software-testing-and
 ## ASan Out-of-bound Write bypass Redzone
 ### Source code
 ```
-
+#include <stdio.h> 
+#include <stdlib.h> 
+int main()
+{ 
+int a[8]; 
+int b[8]; 
+a[16] = 0xff; 
+return 0; 
+}
 ```
 ### Why
-
+```
+因為將a陣列的最後一個element直接寫入了b陣列的第一個
+這樣可以讓a陣列+32bytes剛好位於b陣列的邊界，但又沒有超過redzone
+故ASAN不會檢測出問題
+```
